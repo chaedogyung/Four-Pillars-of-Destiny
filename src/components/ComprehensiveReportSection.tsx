@@ -397,7 +397,7 @@ export function ComprehensiveReportSection({
               onChange={(e) => setCustomQuestion(e.target.value)}
               maxLength={300}
               placeholder="궁금한 고민을 입력해 보세요 (선택 · 예: 올해 이직과 창업 중 어떤 방향이 유리할까요?)"
-              className="min-w-0 flex-1 rounded-lg border border-hanji-border bg-white px-3.5 py-2.5 text-sm text-ink focus:border-bronze"
+              className="min-w-0 flex-1 rounded-lg border border-hanji-border bg-hanji-input px-3.5 py-2.5 text-sm text-ink focus:border-bronze"
             />
             <button
               type="button"

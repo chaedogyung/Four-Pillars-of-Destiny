@@ -1,4 +1,4 @@
-import type { BirthPlace, BranchInfo, ElementInfo, StemInfo } from '../types/saju';
+import type { BirthPlace, BranchInfo, ElementInfo, NapeumInfo, StemInfo } from '../types/saju';
 
 export const STEMS: StemInfo[] = [
   { idx: 0, hanja: '甲', kor: '갑', el: 0, pol: 1 },
@@ -87,31 +87,31 @@ export const ELEMENT_STYLES: Record<
 > = {
   0: {
     box: 'bg-wood-bg text-wood-fg border-wood-bd',
-    bar: 'bg-[#287a54]',
+    bar: 'bg-[#287a54] dark:bg-[#2fa36c]',
     text: 'text-wood-fg',
     subtle: 'bg-wood-bg/70 text-wood-fg',
   },
   1: {
     box: 'bg-fire-bg text-fire-fg border-fire-bd',
-    bar: 'bg-[#c54135]',
+    bar: 'bg-[#c54135] dark:bg-[#df594e]',
     text: 'text-fire-fg',
     subtle: 'bg-fire-bg/70 text-fire-fg',
   },
   2: {
     box: 'bg-earth-bg text-earth-fg border-earth-bd',
-    bar: 'bg-[#c28e22]',
+    bar: 'bg-[#c28e22] dark:bg-[#dca634]',
     text: 'text-earth-fg',
     subtle: 'bg-earth-bg/70 text-earth-fg',
   },
   3: {
     box: 'bg-metal-bg text-metal-fg border-metal-bd',
-    bar: 'bg-[#737e88]',
+    bar: 'bg-[#737e88] dark:bg-[#9aa5b1]',
     text: 'text-metal-fg',
     subtle: 'bg-metal-bg/70 text-metal-fg',
   },
   4: {
     box: 'bg-water-bg text-water-fg border-water-bd',
-    bar: 'bg-[#244e85]',
+    bar: 'bg-[#244e85] dark:bg-[#4980cb]',
     text: 'text-water-fg',
     subtle: 'bg-water-bg/70 text-water-fg',
   },
@@ -144,6 +144,120 @@ export const STAGE12_START: Array<{ br: number; dir: 1 | -1 }> = [
   { br: 8, dir: 1 }, // 壬: 申 순행
   { br: 3, dir: -1 }, // 癸: 卯 역행
 ];
+
+export const SINSAL12_NAMES = [
+  '겁살',
+  '재살',
+  '천살',
+  '지살',
+  '년살',
+  '월살',
+  '망신살',
+  '장성살',
+  '반안살',
+  '역마살',
+  '육해살',
+  '화개살',
+] as const;
+
+/**
+ * 60갑자 납음오행 30쌍 (갑자/을축 = 0 ... 임술/계해 = 29)
+ */
+export const NAPEUM_30: NapeumInfo[] = [
+  { kor: '해중금', hanja: '海中金', el: 3 },
+  { kor: '노중화', hanja: '爐中火', el: 1 },
+  { kor: '대림목', hanja: '大林木', el: 0 },
+  { kor: '노방토', hanja: '路傍土', el: 2 },
+  { kor: '검봉금', hanja: '劍鋒金', el: 3 },
+  { kor: '산두화', hanja: '山頭火', el: 1 },
+  { kor: '간하수', hanja: '澗下水', el: 4 },
+  { kor: '성두토', hanja: '城頭土', el: 2 },
+  { kor: '백납금', hanja: '白蠟金', el: 3 },
+  { kor: '양류목', hanja: '楊柳木', el: 0 },
+  { kor: '천중수', hanja: '泉中水', el: 4 },
+  { kor: '옥상토', hanja: '屋上土', el: 2 },
+  { kor: '벽력화', hanja: '霹靂火', el: 1 },
+  { kor: '송백목', hanja: '松柏木', el: 0 },
+  { kor: '장류수', hanja: '長流水', el: 4 },
+  { kor: '사중금', hanja: '沙中金', el: 3 },
+  { kor: '산하화', hanja: '山下火', el: 1 },
+  { kor: '평지목', hanja: '平地木', el: 0 },
+  { kor: '벽상토', hanja: '壁上土', el: 2 },
+  { kor: '금박금', hanja: '金箔金', el: 3 },
+  { kor: '복등화', hanja: '覆燈火', el: 1 },
+  { kor: '천하수', hanja: '天河水', el: 4 },
+  { kor: '대역토', hanja: '大驛土', el: 2 },
+  { kor: '차천금', hanja: '釵釧金', el: 3 },
+  { kor: '상자목', hanja: '桑柘木', el: 0 },
+  { kor: '대계수', hanja: '大溪水', el: 4 },
+  { kor: '사중토', hanja: '沙中土', el: 2 },
+  { kor: '천상화', hanja: '天上火', el: 1 },
+  { kor: '석류목', hanja: '石榴木', el: 0 },
+  { kor: '대해수', hanja: '大海水', el: 4 },
+];
+
+/**
+ * 월지별 지장간 사령(당령) 일수 분배표 (절입 경과일 기준)
+ */
+export const WOLRYEONG_SCHEDULE: Record<number, Array<{ stem: number; days: number }>> = {
+  0: [
+    { stem: 8, days: 10 },
+    { stem: 9, days: 20 },
+  ], // 子: 壬10 癸20
+  1: [
+    { stem: 9, days: 9 },
+    { stem: 7, days: 3 },
+    { stem: 5, days: 18 },
+  ], // 丑: 癸9 辛3 己18
+  2: [
+    { stem: 4, days: 7 },
+    { stem: 2, days: 7 },
+    { stem: 0, days: 16 },
+  ], // 寅: 戊7 丙7 甲16
+  3: [
+    { stem: 0, days: 10 },
+    { stem: 1, days: 20 },
+  ], // 卯: 甲10 乙20
+  4: [
+    { stem: 1, days: 9 },
+    { stem: 9, days: 3 },
+    { stem: 4, days: 18 },
+  ], // 辰: 乙9 癸3 戊18
+  5: [
+    { stem: 4, days: 7 },
+    { stem: 6, days: 7 },
+    { stem: 2, days: 16 },
+  ], // 巳: 戊7 庚7 丙16
+  6: [
+    { stem: 2, days: 10 },
+    { stem: 5, days: 9 },
+    { stem: 3, days: 11 },
+  ], // 午: 丙10 己9 丁11
+  7: [
+    { stem: 3, days: 9 },
+    { stem: 1, days: 3 },
+    { stem: 5, days: 18 },
+  ], // 未: 丁9 乙3 己18
+  8: [
+    { stem: 4, days: 7 },
+    { stem: 8, days: 7 },
+    { stem: 6, days: 16 },
+  ], // 申: 戊7 壬7 庚16
+  9: [
+    { stem: 6, days: 10 },
+    { stem: 7, days: 20 },
+  ], // 酉: 庚10 辛20
+  10: [
+    { stem: 7, days: 9 },
+    { stem: 3, days: 3 },
+    { stem: 4, days: 18 },
+  ], // 戌: 辛9 丁3 戊18
+  11: [
+    { stem: 4, days: 7 },
+    { stem: 0, days: 7 },
+    { stem: 8, days: 16 },
+  ], // 亥: 戊7 甲7 壬16
+};
 
 export const SOLAR_TERMS_12 = [
   { deg: 315, name: '입춘(立春)' },

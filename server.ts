@@ -32,6 +32,55 @@ function encodeKasiKey(rawKey: string): string {
   return rawKey.includes('%') ? rawKey : encodeURIComponent(rawKey);
 }
 
+function decodeXmlText(raw: string): string {
+  const unwrapped = raw.replace(/^<!\[CDATA\[([\s\S]*?)\]\]>$/, '$1').trim();
+  return unwrapped
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, '&');
+}
+
+function extractXmlTag(xml: string, tagName: string): string | null {
+  const match = xml.match(new RegExp(`<${tagName}>([\\s\\S]*?)</${tagName}>`, 'i'));
+  return match ? decodeXmlText(match[1]) : null;
+}
+
+function parseKasiXml(xml: string): Record<string, string>[] {
+  const returnAuthMsg = extractXmlTag(xml, 'returnAuthMsg');
+  if (returnAuthMsg) {
+    if (returnAuthMsg.includes('SERVICE_KEY_IS_NOT_REGISTERED_ERROR')) {
+      throw new Error('등록되지 않은 KASI 인증키입니다. 공공데이터포털 인증키를 다시 확인해 주세요.');
+    }
+    if (returnAuthMsg.includes('LIMITED_NUMBER_OF_SERVICE_REQUESTS_EXCEEDS_ERROR')) {
+      throw new Error('KASI 일일 호출 한도를 초과했습니다.');
+    }
+    const errMsg = extractXmlTag(xml, 'errMsg');
+    throw new Error(`KASI 인증/호출 오류: ${returnAuthMsg}${errMsg ? ` (${errMsg})` : ''}`);
+  }
+
+  const resultCode = extractXmlTag(xml, 'resultCode');
+  const resultMsg = extractXmlTag(xml, 'resultMsg');
+  if (resultCode && resultCode !== '00') {
+    throw new Error(`KASI API 오류 (${resultCode}): ${resultMsg || '요청 실패'}`);
+  }
+
+  const itemBlocks = xml.match(/<item>[\s\S]*?<\/item>/gi);
+  if (!itemBlocks || itemBlocks.length === 0) return [];
+
+  return itemBlocks.map((block) => {
+    const record: Record<string, string> = {};
+    const inner = block.replace(/^<item>/i, '').replace(/<\/item>$/i, '');
+    const fieldRegex = /<([a-zA-Z0-9_]+)>([\s\S]*?)<\/\1>/g;
+    let fieldMatch: RegExpExecArray | null;
+    while ((fieldMatch = fieldRegex.exec(inner)) !== null) {
+      record[fieldMatch[1]] = decodeXmlText(fieldMatch[2]);
+    }
+    return record;
+  });
+}
+
 interface KasiApiResponse {
   response?: {
     header?: { resultCode?: string; resultMsg?: string };
@@ -41,46 +90,53 @@ interface KasiApiResponse {
 
 async function fetchKasiEndpoint(url: string): Promise<Record<string, string>[]> {
   const res = await fetch(url, {
-    headers: { Accept: 'application/json' },
+    headers: { Accept: 'application/xml, text/xml, */*' },
   });
-  const text = await res.text();
+  const text = (await res.text()).trim();
   if (!res.ok) {
     throw new Error(`KASI 서버 응답 오류 (HTTP ${res.status})`);
   }
 
-  let json: KasiApiResponse;
+  // 공식 XML 포맷 우선 파싱
+  if (text.startsWith('<')) {
+    return parseKasiXml(text);
+  }
+
+  // JSON 응답일 경우 보조 파싱
   try {
-    json = JSON.parse(text) as KasiApiResponse;
-  } catch {
-    if (text.includes('SERVICE_KEY_IS_NOT_REGISTERED_ERROR')) {
-      throw new Error('등록되지 않은 KASI 인증키입니다. 공공데이터포털 인증키를 다시 확인해 주세요.');
+    const json = JSON.parse(text) as KasiApiResponse;
+    const header = json?.response?.header;
+    if (header && header.resultCode && header.resultCode !== '00') {
+      throw new Error(`KASI API 오류 (${header.resultCode}): ${header.resultMsg || '요청 실패'}`);
     }
-    if (text.includes('LIMITED_NUMBER_OF_SERVICE_REQUESTS_EXCEEDS_ERROR')) {
-      throw new Error('KASI 일일 호출 한도를 초과했습니다.');
+    const rawItem = json?.response?.body?.items?.item;
+    if (!rawItem) return [];
+    const items = Array.isArray(rawItem) ? rawItem : [rawItem];
+    return items as Record<string, string>[];
+  } catch (err) {
+    if (err instanceof Error && err.message.startsWith('KASI')) {
+      throw err;
     }
-    throw new Error('KASI API 응답을 해석하지 못했습니다. 인증키 또는 날짜 범위를 확인해 주세요.');
+    throw new Error('KASI XML 응답을 해석하지 못했습니다. 인증키 또는 날짜 범위를 확인해 주세요.');
   }
-
-  const header = json?.response?.header;
-  if (header && header.resultCode && header.resultCode !== '00') {
-    throw new Error(`KASI API 오류 (${header.resultCode}): ${header.resultMsg || '요청 실패'}`);
-  }
-
-  const rawItem = json?.response?.body?.items?.item;
-  if (!rawItem) return [];
-  const items = Array.isArray(rawItem) ? rawItem : [rawItem];
-  return items as Record<string, string>[];
 }
 
 async function startServer() {
   const app = express();
   app.use(express.json({ limit: '64kb' }));
 
-  // KASI API Proxy 1: 양력 -> 음력 및 일진 조회
+  const getServerKasiKey = () => (process.env.KASI_API_KEY || '').trim();
+
+  // KASI 설정 여부 확인 (키 값은 절대 노출하지 않음)
+  app.get('/api/kasi/status', (_req, res) => {
+    res.json({ configured: Boolean(getServerKasiKey()) });
+  });
+
+  // KASI API Proxy 1: 양력 -> 음력 및 일진 조회 (XML 포맷)
   app.get('/api/kasi/lunar-from-solar', async (req, res) => {
-    const rawKey = req.header('X-Kasi-Service-Key')?.trim() || '';
-    if (!rawKey || rawKey.length > 300) {
-      res.status(400).json({ error: '유효한 KASI 인증키가 필요합니다.' });
+    const rawKey = getServerKasiKey();
+    if (!rawKey) {
+      res.json({ item: null, configured: false });
       return;
     }
     const year = parseIntInRange(req.query.year, 1890, 2100);
@@ -92,20 +148,23 @@ async function startServer() {
     }
 
     try {
-      const url = `${KASI_BASE}/getLunCalInfo?solYear=${year}&solMonth=${String(month).padStart(2, '0')}&solDay=${String(day).padStart(2, '0')}&_type=json&serviceKey=${encodeKasiKey(rawKey)}`;
+      const url = `${KASI_BASE}/getLunCalInfo?solYear=${year}&solMonth=${String(month).padStart(2, '0')}&solDay=${String(day).padStart(2, '0')}&serviceKey=${encodeKasiKey(rawKey)}`;
       const items = await fetchKasiEndpoint(url);
-      res.json({ item: items[0] ?? null });
+      res.json({ item: items[0] ?? null, configured: true });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'KASI 음력 조회에 실패했습니다.';
-      res.status(502).json({ error: message });
+      res.status(502).json({ error: message, configured: true });
     }
   });
 
-  // KASI API Proxy 2: 음력 -> 양력 변환
+  // KASI API Proxy 2: 음력 -> 양력 변환 (XML 포맷)
   app.get('/api/kasi/solar-from-lunar', async (req, res) => {
-    const rawKey = req.header('X-Kasi-Service-Key')?.trim() || '';
-    if (!rawKey || rawKey.length > 300) {
-      res.status(400).json({ error: '유효한 KASI 인증키가 필요합니다.' });
+    const rawKey = getServerKasiKey();
+    if (!rawKey) {
+      res.status(503).json({
+        error:
+          '서버에 KASI_API_KEY가 아직 설정되지 않았습니다. Settings > Secrets에 한국천문연구원 음양력 인증키를 등록하면 음력 변환이 자동 적용됩니다.',
+      });
       return;
     }
     const year = parseIntInRange(req.query.year, 1890, 2100);
@@ -119,7 +178,7 @@ async function startServer() {
     }
 
     try {
-      const url = `${KASI_BASE}/getSolCalInfo?lunYear=${year}&lunMonth=${String(month).padStart(2, '0')}&lunDay=${String(day).padStart(2, '0')}&_type=json&serviceKey=${encodeKasiKey(rawKey)}`;
+      const url = `${KASI_BASE}/getSolCalInfo?lunYear=${year}&lunMonth=${String(month).padStart(2, '0')}&lunDay=${String(day).padStart(2, '0')}&serviceKey=${encodeKasiKey(rawKey)}`;
       const items = await fetchKasiEndpoint(url);
       if (items.length === 0) {
         res.status(404).json({ error: '해당 음력 날짜가 존재하지 않습니다.' });
@@ -135,7 +194,7 @@ async function startServer() {
         });
         return;
       }
-      res.json({ item: matched });
+      res.json({ item: matched, configured: true });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'KASI 음력 변환에 실패했습니다.';
       res.status(502).json({ error: message });

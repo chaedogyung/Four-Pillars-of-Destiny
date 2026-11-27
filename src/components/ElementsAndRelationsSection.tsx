@@ -171,7 +171,7 @@ export function ElementsAndRelationsSection({ data }: ElementsAndRelationsSectio
           {/* 합·충 */}
           <div>
             <h3 className="text-xs font-semibold text-ink-muted pb-2.5 border-b border-hanji-border/70">
-              천간합 · 지지 육합·삼합·반합·육충
+              천간 합·충 · 지지 육합·삼합·방합·육충·형·파·해
             </h3>
             <ul className="divide-y divide-hanji-border/60">
               {data.relations.map((rel, idx) => (
@@ -208,7 +208,7 @@ export function ElementsAndRelationsSection({ data }: ElementsAndRelationsSectio
           {/* 신살 */}
           <div>
             <h3 className="text-xs font-semibold text-ink-muted pb-2.5 border-b border-hanji-border/70">
-              천을귀인 · 도화 · 역마 · 화개 · 괴강
+              천을·천월덕·복성귀인 · 도화·역마·화개 · 양인·백호·현침
             </h3>
             <ul className="divide-y divide-hanji-border/60">
               {data.sinsal.map((item, idx) => (

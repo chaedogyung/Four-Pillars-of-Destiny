@@ -1,13 +1,8 @@
 import { useState, type FormEvent } from 'react';
-import { ChevronDown, MapPin, Search, KeyRound, Check } from 'lucide-react';
+import { MapPin, Search } from 'lucide-react';
 import { PRESET_PLACES } from '../lib/sajuData';
 import { getTimezoneOffsetHours } from '../lib/sajuEngine';
-import {
-  clearKasiKey,
-  getKasiKey,
-  searchBirthPlaceAPI,
-  setKasiKey,
-} from '../lib/externalApis';
+import { searchBirthPlaceAPI } from '../lib/externalApis';
 import type { BirthPlace, CalendarType, Gender, SajuFormInput } from '../types/saju';
 
 interface BirthInputPanelProps {
@@ -18,7 +13,6 @@ interface BirthInputPanelProps {
   onChangeForm: (patch: Partial<SajuFormInput>) => void;
   onChangePlace: (place: BirthPlace) => void;
   onSubmit: () => void;
-  onNotify: (msg: { type: 'info' | 'error'; text: string } | null) => void;
 }
 
 export function BirthInputPanel({
@@ -29,16 +23,11 @@ export function BirthInputPanel({
   onChangeForm,
   onChangePlace,
   onSubmit,
-  onNotify,
 }: BirthInputPanelProps) {
   const [placeQuery, setPlaceQuery] = useState('');
   const [placeResults, setPlaceResults] = useState<BirthPlace[]>([]);
   const [isSearchingPlace, setIsSearchingPlace] = useState(false);
   const [placeError, setPlaceError] = useState<string | null>(null);
-
-  const [kasiInput, setKasiInput] = useState(() => getKasiKey());
-  const [hasKasiKey, setHasKasiKey] = useState(() => Boolean(getKasiKey()));
-  const [kasiOpen, setKasiOpen] = useState(false);
 
   const [y, m, d] = (form.birthDate || '1992-08-15').split('-').map(Number);
   const tzOffset = getTimezoneOffsetHours(
@@ -68,27 +57,6 @@ export function BirthInputPanel({
     }
   };
 
-  const handleSaveKasi = () => {
-    const trimmed = kasiInput.trim();
-    if (!trimmed) {
-      onNotify({ type: 'error', text: '공공데이터포털 KASI 인증키를 입력해 주세요.' });
-      return;
-    }
-    setKasiKey(trimmed);
-    setHasKasiKey(true);
-    onNotify({
-      type: 'info',
-      text: 'KASI 음양력 API 인증키가 저장되었습니다. 음력 변환 및 천문연 일진 검증을 사용할 수 있습니다.',
-    });
-  };
-
-  const handleClearKasi = () => {
-    clearKasiKey();
-    setKasiInput('');
-    setHasKasiKey(false);
-    onNotify({ type: 'info', text: '저장된 KASI API 인증키가 삭제되었습니다.' });
-  };
-
   const handleFormSubmit = (e: FormEvent) => {
     e.preventDefault();
     onSubmit();
@@ -114,7 +82,7 @@ export function BirthInputPanel({
               value={form.name}
               onChange={(e) => onChangeForm({ name: e.target.value })}
               placeholder="예: 홍길동"
-              className="w-full rounded-lg border border-hanji-border bg-white px-3 py-2 text-sm text-ink transition-colors focus:border-bronze"
+              className="w-full rounded-lg border border-hanji-border bg-hanji-input px-3 py-2 text-sm text-ink transition-colors focus:border-bronze"
             />
           </div>
 
@@ -146,13 +114,13 @@ export function BirthInputPanel({
         <div className="space-y-3.5 pt-4 border-t border-hanji-border/70">
           <div>
             <label htmlFor="saju-cal" className="block text-xs font-semibold text-ink-muted mb-1.5">
-              역법 선택 {hasKasiKey ? '· KASI 음양력 연동 활성' : '· 음력 시 KASI 키 필요'}
+              역법 선택 · KASI 음양력 기준
             </label>
             <select
               id="saju-cal"
               value={form.calendarType}
               onChange={(e) => onChangeForm({ calendarType: e.target.value as CalendarType })}
-              className="w-full rounded-lg border border-hanji-border bg-white px-3 py-2 text-sm text-ink focus:border-bronze"
+              className="w-full rounded-lg border border-hanji-border bg-hanji-input px-3 py-2 text-sm text-ink focus:border-bronze"
             >
               <option value="solar">양력 (陽曆)</option>
               <option value="lunar">음력 · 평달 (陰曆)</option>
@@ -171,7 +139,7 @@ export function BirthInputPanel({
                 required
                 value={form.birthDate}
                 onChange={(e) => onChangeForm({ birthDate: e.target.value })}
-                className="w-full rounded-lg border border-hanji-border bg-white px-3 py-2 font-mono text-sm tabular-nums text-ink focus:border-bronze"
+                className="w-full rounded-lg border border-hanji-border bg-hanji-input px-3 py-2 font-mono text-sm tabular-nums text-ink focus:border-bronze"
               />
             </div>
 
@@ -185,7 +153,7 @@ export function BirthInputPanel({
                 disabled={form.unknownTime}
                 value={form.birthTime}
                 onChange={(e) => onChangeForm({ birthTime: e.target.value })}
-                className="w-full rounded-lg border border-hanji-border bg-white px-3 py-2 font-mono text-sm tabular-nums text-ink disabled:bg-hanji-subtle disabled:text-ink-muted/60 focus:border-bronze"
+                className="w-full rounded-lg border border-hanji-border bg-hanji-input px-3 py-2 font-mono text-sm tabular-nums text-ink disabled:bg-hanji-subtle disabled:text-ink-muted/60 focus:border-bronze"
               />
             </div>
           </div>
@@ -215,7 +183,7 @@ export function BirthInputPanel({
                 }
               }}
               placeholder="도시명 검색 (예: 부산, 제주, 도쿄)"
-              className="min-w-0 flex-1 rounded-lg border border-hanji-border bg-white px-3 py-2 text-sm text-ink focus:border-bronze"
+              className="min-w-0 flex-1 rounded-lg border border-hanji-border bg-hanji-input px-3 py-2 text-sm text-ink focus:border-bronze"
             />
             <button
               type="button"
@@ -254,7 +222,7 @@ export function BirthInputPanel({
           {placeError && <p className="text-xs text-fire-fg">{placeError}</p>}
 
           {placeResults.length > 0 && (
-            <div className="divide-y divide-hanji-border rounded-lg border border-hanji-border bg-white">
+            <div className="divide-y divide-hanji-border rounded-lg border border-hanji-border bg-hanji-input">
               {placeResults.map((item, idx) => (
                 <button
                   key={`${item.name}-${item.latitude}-${idx}`}
@@ -347,63 +315,9 @@ export function BirthInputPanel({
           </label>
         </div>
 
-        {/* KASI 음양력 API 키 설정 (접이식) */}
-        <div className="pt-4 border-t border-hanji-border/70">
-          <button
-            type="button"
-            onClick={() => setKasiOpen((v) => !v)}
-            className="flex w-full items-center justify-between gap-2 text-left text-xs font-semibold text-ink hover:text-bronze-dark cursor-pointer"
-          >
-            <span className="inline-flex items-center gap-1.5">
-              <KeyRound className="h-3.5 w-3.5 text-bronze" aria-hidden="true" />
-              KASI 음양력 API 설정 (선택)
-            </span>
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-ink-muted">
-              {hasKasiKey ? (
-                <span className="inline-flex items-center gap-0.5 text-wood-fg">
-                  <Check className="h-3 w-3" aria-hidden="true" /> 등록됨
-                </span>
-              ) : (
-                '미등록'
-              )}
-              <ChevronDown
-                className={`h-3.5 w-3.5 transition-transform ${kasiOpen ? 'rotate-180' : ''}`}
-                aria-hidden="true"
-              />
-            </span>
-          </button>
-
-          {kasiOpen && (
-            <div className="mt-3 space-y-2.5">
-              <input
-                type="password"
-                value={kasiInput}
-                onChange={(e) => setKasiInput(e.target.value)}
-                placeholder="공공데이터포털 KASI 음양력 인증키"
-                className="w-full rounded-lg border border-hanji-border bg-white px-3 py-2 text-xs text-ink focus:border-bronze"
-              />
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={handleSaveKasi}
-                  className="flex-1 rounded-lg border border-hanji-border bg-hanji px-3 py-1.5 text-xs font-semibold text-ink hover:bg-hanji-subtle cursor-pointer"
-                >
-                  인증키 저장
-                </button>
-                <button
-                  type="button"
-                  onClick={handleClearKasi}
-                  className="rounded-lg border border-hanji-border bg-white px-3 py-1.5 text-xs font-medium text-ink-muted hover:text-fire-fg cursor-pointer"
-                >
-                  삭제
-                </button>
-              </div>
-              <p className="text-[11px] leading-relaxed text-ink-muted">
-                공공데이터포털(data.go.kr)의 <strong>한국천문연구원_음양력 정보</strong> 무료 인증키를 등록하면 음력(평/윤달) 변환과 일진 교차 검증이 작동합니다. 키는 이 브라우저의 localStorage에만 보관됩니다.
-              </p>
-            </div>
-          )}
-        </div>
+        <p className="pt-3 border-t border-hanji-border/70 text-[11px] leading-relaxed text-ink-muted">
+          음양력 변환 및 일진 검증은 한국천문연구원(KASI) 음양력 정보와 Jean Meeus 태양황경 알고리즘을 기준으로 자동 계산됩니다.
+        </p>
 
         {statusMsg && (
           <div

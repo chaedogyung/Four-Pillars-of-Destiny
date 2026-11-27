@@ -1,57 +1,137 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --bg-hanji: #f5f1e8;
+  --bg-hanji-surface: #fcfaf5;
+  --bg-hanji-subtle: #ede7da;
+  --bg-hanji-input: #ffffff;
+  --bg-hanji-highlight: #fffcf4;
+  --border-hanji: #dfd6c5;
+  --text-ink: #1e1b18;
+  --text-ink-muted: #665e54;
+  --accent-bronze: #8c663e;
+  --accent-bronze-dark: #6b4c2b;
+  --accent-seal: #9e3528;
+
+  --wood-bg: #e7f3ec;
+  --wood-fg: #185c3f;
+  --wood-bd: #9bcbb1;
+
+  --fire-bg: #faece9;
+  --fire-fg: #a42f24;
+  --fire-bd: #e7a59d;
+
+  --earth-bg: #faf2dc;
+  --earth-fg: #8c5e12;
+  --earth-bd: #dfc279;
+
+  --metal-bg: #eff1f3;
+  --metal-fg: #454d55;
+  --metal-bd: #c2c9d0;
+
+  --water-bg: #e7eef6;
+  --water-fg: #1b3c6c;
+  --water-bd: #96b0d2;
+}
+
+.dark {
+  --bg-hanji: #0e1014;
+  --bg-hanji-surface: #161920;
+  --bg-hanji-subtle: #20242e;
+  --bg-hanji-input: #12151b;
+  --bg-hanji-highlight: #211e18;
+  --border-hanji: #2c3240;
+  --text-ink: #f2eee6;
+  --text-ink-muted: #a6a096;
+  --accent-bronze: #cfa46c;
+  --accent-bronze-dark: #e4be89;
+  --accent-seal: #f06e60;
+
+  --wood-bg: #134a33;
+  --wood-fg: #dcfce7;
+  --wood-bd: #25875c;
+
+  --fire-bg: #7a1f1a;
+  --fire-fg: #fee2e2;
+  --fire-bd: #c8463e;
+
+  --earth-bg: #6b4c10;
+  --earth-fg: #fef3c7;
+  --earth-bd: #c49228;
+
+  --metal-bg: #343b45;
+  --metal-fg: #f1f5f9;
+  --metal-bd: #6b7685;
+
+  --water-bg: #15305a;
+  --water-fg: #dbeafe;
+  --water-bd: #3b6cb5;
+}
 
 @theme {
   --font-serif: "Noto Serif KR", "Batang", Georgia, serif;
   --font-sans: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
 
-  --color-hanji: #f5f1e8;
-  --color-hanji-surface: #fcfaf5;
-  --color-hanji-subtle: #ede7da;
-  --color-hanji-border: #dfd6c5;
-  --color-ink: #1e1b18;
-  --color-ink-muted: #665e54;
-  --color-bronze: #8c663e;
-  --color-bronze-dark: #6b4c2b;
-  --color-seal: #9e3528;
+  --color-hanji: var(--bg-hanji);
+  --color-hanji-surface: var(--bg-hanji-surface);
+  --color-hanji-subtle: var(--bg-hanji-subtle);
+  --color-hanji-input: var(--bg-hanji-input);
+  --color-hanji-highlight: var(--bg-hanji-highlight);
+  --color-hanji-border: var(--border-hanji);
+  --color-ink: var(--text-ink);
+  --color-ink-muted: var(--text-ink-muted);
+  --color-bronze: var(--accent-bronze);
+  --color-bronze-dark: var(--accent-bronze-dark);
+  --color-seal: var(--accent-seal);
 
-  --color-wood-bg: #e7f3ec;
-  --color-wood-fg: #185c3f;
-  --color-wood-bd: #9bcbb1;
+  --color-wood-bg: var(--wood-bg);
+  --color-wood-fg: var(--wood-fg);
+  --color-wood-bd: var(--wood-bd);
 
-  --color-fire-bg: #faece9;
-  --color-fire-fg: #a42f24;
-  --color-fire-bd: #e7a59d;
+  --color-fire-bg: var(--fire-bg);
+  --color-fire-fg: var(--fire-fg);
+  --color-fire-bd: var(--fire-bd);
 
-  --color-earth-bg: #faf2dc;
-  --color-earth-fg: #8c5e12;
-  --color-earth-bd: #dfc279;
+  --color-earth-bg: var(--earth-bg);
+  --color-earth-fg: var(--earth-fg);
+  --color-earth-bd: var(--earth-bd);
 
-  --color-metal-bg: #eff1f3;
-  --color-metal-fg: #454d55;
-  --color-metal-bd: #c2c9d0;
+  --color-metal-bg: var(--metal-bg);
+  --color-metal-fg: var(--metal-fg);
+  --color-metal-bd: var(--metal-bd);
 
-  --color-water-bg: #e7eef6;
-  --color-water-fg: #1b3c6c;
-  --color-water-bd: #96b0d2;
+  --color-water-bg: var(--water-bg);
+  --color-water-fg: var(--water-fg);
+  --color-water-bd: var(--water-bd);
 }
 
 @layer base {
   html {
     scroll-behavior: smooth;
-    background-color: var(--color-hanji);
-    color: var(--color-ink);
+    background-color: var(--bg-hanji);
+    color: var(--text-ink);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
   }
 
   body {
-    background-color: var(--color-hanji);
+    background-color: var(--bg-hanji);
     background-image:
       radial-gradient(rgba(140, 102, 62, 0.04) 1px, transparent 0),
       linear-gradient(180deg, #f7f4ec 0%, #f3eee3 100%);
     background-size: 24px 24px, 100% 100%;
     min-height: 100vh;
+    transition: background-color 150ms ease, color 150ms ease;
+  }
+
+  .dark body {
+    background-color: var(--bg-hanji);
+    background-image:
+      radial-gradient(rgba(207, 164, 108, 0.04) 1px, transparent 0),
+      linear-gradient(180deg, #101217 0%, #0b0d11 100%);
+    letter-spacing: 0.01em;
   }
 
   h1, h2, h3 {
@@ -59,7 +139,7 @@
   }
 
   *:focus-visible {
-    outline: 2px solid var(--color-bronze);
+    outline: 2px solid var(--accent-bronze);
     outline-offset: 2px;
   }
 }

@@ -1,5 +1,14 @@
 export type Gender = 'M' | 'F';
 export type CalendarType = 'solar' | 'lunar' | 'lunar_leap';
+export type ThemeMode = 'light' | 'dark';
+export type CycleDirection = 'ltr' | 'rtl';
+
+export interface PillarVisibility {
+  tenGods: boolean;
+  sinsal: boolean;
+  stage12: boolean;
+  relations: boolean;
+}
 
 export interface StemInfo {
   idx: number;
@@ -52,6 +61,17 @@ export interface KasiCalendarInfo {
   lunWolgeon?: string;
 }
 
+export interface NapeumInfo {
+  kor: string;
+  hanja: string;
+  el: number;
+}
+
+export interface PillarSpecialStar {
+  name: string;
+  tone: 'good' | 'warn' | 'neutral';
+}
+
 export interface PillarData {
   key: 'hour' | 'day' | 'month' | 'year';
   label: string;
@@ -63,12 +83,39 @@ export interface PillarData {
   branchObj?: BranchInfo;
   stemTenGod?: string;
   branchTenGod?: string;
-  stage12?: string;
-  hiddenStems?: Array<{ stem: StemInfo; role: '여기' | '중기' | '정기' }>;
+  stage12?: string; // 봉법 (일간 기준)
+  selfStage12?: string; // 거법/자좌 (각 주 천간 기준)
+  napeum?: NapeumInfo;
+  stemRelTags?: Array<{ label: string; type: 'good' | 'warn' }>;
+  hiddenStems?: Array<{
+    stem: StemInfo;
+    role: '여기' | '중기' | '정기';
+    tenGod: string;
+  }>;
+  gongmangLabels?: string[]; // ['[년]공망', '[일]공망']
+  sinsal12?: string[]; // 년지·일지 기준 12신살
+  specialStars?: PillarSpecialStar[]; // 길신·특수신살
+}
+
+export interface BranchMatrixRow {
+  id: string;
+  type: 'good' | 'warn' | 'neutral';
+  cells: Record<'hour' | 'day' | 'month' | 'year', string>;
 }
 
 export interface RelationItem {
-  category: '천간합' | '지지육합' | '삼합' | '반합' | '지지충' | '안정';
+  category:
+    | '천간합'
+    | '천간충'
+    | '지지육합'
+    | '삼합'
+    | '반합'
+    | '방합'
+    | '지지충'
+    | '형'
+    | '파'
+    | '해'
+    | '안정';
   type: 'good' | 'warn' | 'neutral';
   title: string;
   detail: string;
@@ -91,6 +138,7 @@ export interface DaewoonItem {
   stemTG: string;
   branchTG: string;
   stage12: string;
+  sinsal12: string[];
 }
 
 export interface SewoonItem {
@@ -102,6 +150,19 @@ export interface SewoonItem {
   stemTG: string;
   branchTG: string;
   stage12: string;
+  sinsal12: string[];
+}
+
+export interface WolwoonItem {
+  month: number; // 1..12 (양력)
+  year: number;
+  isCurrentMonth: boolean;
+  stem: StemInfo;
+  branch: BranchInfo;
+  stemTG: string;
+  branchTG: string;
+  stage12: string;
+  sinsal12: string[];
 }
 
 export interface SajuFormInput {
@@ -147,6 +208,7 @@ export interface SajuResult {
     ipchunDateStr: string;
   };
   pillars: PillarData[];
+  branchMatrixRows: BranchMatrixRow[];
   elCount: number[];
   elWeight: number[];
   strengthRatio: number;
@@ -154,7 +216,13 @@ export interface SajuResult {
   yongshinEls: number[];
   relations: RelationItem[];
   sinsal: SinsalItem[];
-  gongmang: [number, number];
+  gongmang: [number, number]; // 일주 공망
+  yearGongmang: [number, number]; // 연주 공망
+  cheoneulBranches: number[]; // 천을귀인 지지
+  wolryeong: {
+    stem: StemInfo;
+    elapsedDays: number;
+  };
   daewoonMeta: {
     isForward: boolean;
     daewoonNum: number;
@@ -173,6 +241,7 @@ export interface SajuPromptPayload {
     trueSolarBirth: string;
     birthPlace: string;
     solarTerm: string;
+    wolryeong: string;
     unknownTime: boolean;
     yajasiApplied: boolean;
     lunarInfo?: string;
@@ -185,6 +254,8 @@ export interface SajuPromptPayload {
     branchTenGod: string;
     hiddenStems: string[];
     stage12: string;
+    napeum: string;
+    pillarSinsal: string[];
   }>;
   elements: Array<{
     element: string;
@@ -196,7 +267,10 @@ export interface SajuPromptPayload {
     selfAndResourcePercent: number;
     yongshinCandidates: string[];
   };
-  gongmang: string[];
+  gongmang: {
+    year: string[];
+    day: string[];
+  };
   relations: string[];
   sinsal: string[];
   daewoon: {

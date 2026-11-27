@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Moon, Sun } from 'lucide-react';
 import { TopBar } from './components/TopBar';
 import { BirthInputPanel } from './components/BirthInputPanel';
 import { FourPillarsSection } from './components/FourPillarsSection';
@@ -10,9 +11,16 @@ import { calculateSaju } from './lib/sajuEngine';
 import {
   fetchKasiLunarFromSolar,
   fetchKasiSolarFromLunar,
-  getKasiKey,
 } from './lib/externalApis';
-import type { BirthPlace, KasiCalendarInfo, SajuFormInput, SajuResult } from './types/saju';
+import type {
+  BirthPlace,
+  KasiCalendarInfo,
+  SajuFormInput,
+  SajuResult,
+  ThemeMode,
+} from './types/saju';
+
+const THEME_STORAGE_KEY = 'cheongmyeong_theme';
 
 const INITIAL_FORM: SajuFormInput = {
   name: '홍길동',
@@ -26,7 +34,18 @@ const INITIAL_FORM: SajuFormInput = {
   yajasi: false,
 };
 
+function getInitialTheme(): ThemeMode {
+  try {
+    const saved = localStorage.getItem(THEME_STORAGE_KEY);
+    if (saved === 'dark' || saved === 'light') return saved;
+  } catch {
+    // ignore storage restriction
+  }
+  return 'light';
+}
+
 export default function App() {
+  const [theme, setTheme] = useState<ThemeMode>(getInitialTheme);
   const [form, setForm] = useState<SajuFormInput>(INITIAL_FORM);
   const [place, setPlace] = useState<BirthPlace>(DEFAULT_PLACE);
   const [result, setResult] = useState<SajuResult>(() =>
@@ -51,6 +70,17 @@ export default function App() {
   );
 
   const aiSectionRef = useRef<HTMLElement | null>(null);
+
+  // html.dark 클래스 동기화 및 테마 설정 저장
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.toggle('dark', theme === 'dark');
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, theme);
+    } catch {
+      // ignore storage restriction
+    }
+  }, [theme]);
 
   const handleAnalyze = useCallback(
     async (targetForm: SajuFormInput, targetPlace: BirthPlace) => {
@@ -80,16 +110,11 @@ export default function App() {
               targetForm.calendarType === 'lunar_leap' ? '윤달' : '평달'
             }) → 양력 ${solarDateStr}`,
           });
-        } else if (getKasiKey()) {
+        } else {
           try {
             kasiInfo = await fetchKasiLunarFromSolar(iy, im, id);
-          } catch (kasiErr) {
-            const msg =
-              kasiErr instanceof Error ? kasiErr.message : 'KASI 음력 검증 조회 실패';
-            setStatusMsg({
-              type: 'error',
-              text: `KASI 음력 조회 생략 (${msg}) — 자체 천문 만세력 엔진으로 산출했습니다.`,
-            });
+          } catch {
+            kasiInfo = null;
           }
         }
 
@@ -120,11 +145,9 @@ export default function App() {
     []
   );
 
-  // 초기에 KASI 인증키가 등록되어 있다면 음력 검증 정보를 백그라운드로 보강
+  // 초기 로드 시 서버에 설정된 KASI 음양력 정보를 자동으로 조회해 반영
   useEffect(() => {
-    if (getKasiKey()) {
-      void handleAnalyze(INITIAL_FORM, DEFAULT_PLACE);
-    }
+    void handleAnalyze(INITIAL_FORM, DEFAULT_PLACE);
   }, [handleAnalyze]);
 
   const handleJumpToAi = () => {
@@ -136,15 +159,48 @@ export default function App() {
       <TopBar onJumpToAi={handleJumpToAi} />
 
       <main className="mx-auto w-full max-w-[1320px] flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
-        {/* 간결한 에디토리얼 도입부 */}
+        {/* 에디토리얼 도입부 + 워크스페이스 테마 전환 바 */}
         <div className="mb-6 pb-5 border-b border-hanji-border flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-xs font-medium text-bronze-dark">
-              자평명리학(子平命理學) · 천문 태양황경 만세력
+              자평명리학(子平命理學) · 천문 태양황경 정통 만세력
             </p>
             <p className="mt-1 text-sm text-ink-muted">
-              Jean Meeus 태양 황경 절기 계산, Open-Meteo 출생지 경도 진태양시 보정 및 한국천문연구원(KASI) 음양력 교차 검증을 지원합니다.
+              Jean Meeus 태양 황경 절기 계산, Open-Meteo 출생지 경도 진태양시 보정 및 한국천문연구원(KASI) 음양력 검증을 지원합니다.
             </p>
+          </div>
+
+          <div
+            role="group"
+            aria-label="화면 테마 선택"
+            className="inline-flex items-center gap-1 rounded-lg bg-hanji-subtle p-1 shrink-0"
+          >
+            <button
+              type="button"
+              onClick={() => setTheme('light')}
+              aria-pressed={theme === 'light'}
+              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                theme === 'light'
+                  ? 'bg-hanji-surface text-ink shadow-xs'
+                  : 'text-ink-muted hover:text-ink'
+              }`}
+            >
+              <Sun className="h-3.5 w-3.5 text-bronze" aria-hidden="true" />
+              한지 라이트
+            </button>
+            <button
+              type="button"
+              onClick={() => setTheme('dark')}
+              aria-pressed={theme === 'dark'}
+              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                theme === 'dark'
+                  ? 'bg-hanji-surface text-ink shadow-xs'
+                  : 'text-ink-muted hover:text-ink'
+              }`}
+            >
+              <Moon className="h-3.5 w-3.5 text-bronze" aria-hidden="true" />
+              다크 만세력
+            </button>
           </div>
         </div>
 
@@ -159,7 +215,6 @@ export default function App() {
               onChangeForm={(patch) => setForm((prev) => ({ ...prev, ...patch }))}
               onChangePlace={setPlace}
               onSubmit={() => void handleAnalyze(form, place)}
-              onNotify={setStatusMsg}
             />
           </div>
 
