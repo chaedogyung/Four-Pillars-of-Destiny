@@ -1,0 +1,6 @@
+{
+  "name": "청명(淸明) 정통 사주팔자 만세력",
+  "description": "천문 태양황경 기반 정통 명리학 만세력, 진태양시·KASI 음양력 연동 및 AI 심층 사주 풀이 웹앱",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

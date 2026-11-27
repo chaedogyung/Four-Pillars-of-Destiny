@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+@theme {
+  --font-serif: "Noto Serif KR", "Batang", Georgia, serif;
+  --font-sans: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --color-hanji: #f5f1e8;
+  --color-hanji-surface: #fcfaf5;
+  --color-hanji-subtle: #ede7da;
+  --color-hanji-border: #dfd6c5;
+  --color-ink: #1e1b18;
+  --color-ink-muted: #665e54;
+  --color-bronze: #8c663e;
+  --color-bronze-dark: #6b4c2b;
+  --color-seal: #9e3528;
+
+  --color-wood-bg: #e7f3ec;
+  --color-wood-fg: #185c3f;
+  --color-wood-bd: #9bcbb1;
+
+  --color-fire-bg: #faece9;
+  --color-fire-fg: #a42f24;
+  --color-fire-bd: #e7a59d;
+
+  --color-earth-bg: #faf2dc;
+  --color-earth-fg: #8c5e12;
+  --color-earth-bd: #dfc279;
+
+  --color-metal-bg: #eff1f3;
+  --color-metal-fg: #454d55;
+  --color-metal-bd: #c2c9d0;
+
+  --color-water-bg: #e7eef6;
+  --color-water-fg: #1b3c6c;
+  --color-water-bd: #96b0d2;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    background-color: var(--color-hanji);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    background-color: var(--color-hanji);
+    background-image:
+      radial-gradient(rgba(140, 102, 62, 0.04) 1px, transparent 0),
+      linear-gradient(180deg, #f7f4ec 0%, #f3eee3 100%);
+    background-size: 24px 24px, 100% 100%;
+    min-height: 100vh;
+  }
+
+  h1, h2, h3 {
+    text-wrap: balance;
+  }
+
+  *:focus-visible {
+    outline: 2px solid var(--color-bronze);
+    outline-offset: 2px;
+  }
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
