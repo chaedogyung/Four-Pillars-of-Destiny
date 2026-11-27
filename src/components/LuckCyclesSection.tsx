@@ -2,19 +2,86 @@ import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeftRight } from 'lucide-react';
 import { ELEMENTS, ELEMENT_STYLES } from '../lib/sajuData';
 import { buildSewoonsForRange, buildWolwoonsForYear } from '../lib/sajuEngine';
-import type { CycleDirection, SajuResult } from '../types/saju';
+import type { CycleDirection, SajuResult, SinsalScope, TransitAssessment } from '../types/saju';
 
 interface LuckCyclesSectionProps {
   data: SajuResult;
+  sinsalScope: SinsalScope;
 }
 
-export function LuckCyclesSection({ data }: LuckCyclesSectionProps) {
+function TransitDetailPanel({
+  title,
+  meta,
+  assessment,
+}: {
+  title: string;
+  meta: string;
+  assessment: TransitAssessment;
+}) {
+  const verdictCls =
+    assessment.tone === 'good'
+      ? 'text-wood-fg'
+      : assessment.tone === 'warn'
+        ? 'text-fire-fg'
+        : 'text-bronze-dark';
+
+  return (
+    <div className="mt-3 rounded-lg border border-hanji-border/70 bg-hanji px-4 py-3.5 text-xs sm:text-sm leading-relaxed text-ink space-y-2.5">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <div>
+          <strong className="font-serif text-ink">{title}</strong>
+          <span className="mx-2 text-ink-muted">|</span>
+          <span className="text-xs text-ink-muted">{meta}</span>
+        </div>
+        <span className={`text-xs font-bold whitespace-nowrap ${verdictCls}`}>
+          판정: {assessment.verdict}
+        </span>
+      </div>
+
+      <p className="text-xs sm:text-sm text-ink/90">{assessment.summary}</p>
+
+      {assessment.interactions.length > 0 && (
+        <div className="pt-2 border-t border-hanji-border/60">
+          <div className="text-[11px] font-semibold text-ink-muted mb-1.5">
+            원국·운기 실시간 상호작용 (합·충·형·해·원진·귀인)
+          </div>
+          <ul className="space-y-1">
+            {assessment.interactions.map((it, idx) => (
+              <li
+                key={`${it.label}-${it.target}-${idx}`}
+                className="flex flex-wrap items-baseline gap-x-2 text-xs leading-relaxed"
+              >
+                <span
+                  className={`font-semibold whitespace-nowrap ${
+                    it.tone === 'good'
+                      ? 'text-wood-fg'
+                      : it.tone === 'warn'
+                        ? 'text-fire-fg'
+                        : 'text-bronze-dark'
+                  }`}
+                >
+                  [{it.category}] {it.label}
+                </span>
+                <span className="text-ink-muted">
+                  ({it.target}) — {it.detail}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function LuckCyclesSection({ data, sinsalScope }: LuckCyclesSectionProps) {
   const birthYear = Number(data.input.solarDateStr.slice(0, 4));
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth() + 1;
   const currentAge = currentYear - birthYear + 1;
   const dayStem = data.pillars[1].stem ?? 0;
   const dayBranch = data.pillars[1].branch ?? 0;
+  const monthBranch = data.pillars[2].branch ?? 0;
   const yearBranch = data.pillars[3].branch ?? 0;
 
   const defaultDwIdx = useMemo(() => {
@@ -47,11 +114,33 @@ export function LuckCyclesSection({ data }: LuckCyclesSectionProps) {
         birthYear,
         dayStem,
         yearBranch,
-        dayBranch
+        dayBranch,
+        monthBranch,
+        data.pillars,
+        data.yongshinProfile,
+        data.cheoneulBranches,
+        data.yearGongmang,
+        data.gongmang,
+        data.daewoons
       );
     }
     return data.sewoons;
-  }, [sewoonMode, activeDw, birthYear, dayStem, yearBranch, dayBranch, data.sewoons]);
+  }, [
+    sewoonMode,
+    activeDw,
+    birthYear,
+    dayStem,
+    yearBranch,
+    dayBranch,
+    monthBranch,
+    data.pillars,
+    data.yongshinProfile,
+    data.cheoneulBranches,
+    data.yearGongmang,
+    data.gongmang,
+    data.daewoons,
+    data.sewoons,
+  ]);
 
   const activeSw =
     rawSewoons.find((sw) => sw.year === selectedSwYear) ??
@@ -60,16 +149,47 @@ export function LuckCyclesSection({ data }: LuckCyclesSectionProps) {
 
   const targetMonthYear = activeSw?.year ?? currentYear;
   const targetMonthAge = targetMonthYear - birthYear + 1;
+  const targetYearDaewoon = useMemo(
+    () =>
+      data.daewoons.find(
+        (dw) => targetMonthAge >= dw.age && targetMonthAge <= dw.endAge
+      ) ?? activeDw,
+    [data.daewoons, targetMonthAge, activeDw]
+  );
 
   const rawWolwoons = useMemo(
-    () => buildWolwoonsForYear(targetMonthYear, dayStem, yearBranch, dayBranch),
-    [targetMonthYear, dayStem, yearBranch, dayBranch]
+    () =>
+      buildWolwoonsForYear(
+        targetMonthYear,
+        dayStem,
+        yearBranch,
+        dayBranch,
+        monthBranch,
+        data.pillars,
+        data.yongshinProfile,
+        data.cheoneulBranches,
+        data.yearGongmang,
+        data.gongmang,
+        targetYearDaewoon
+      ),
+    [
+      targetMonthYear,
+      dayStem,
+      yearBranch,
+      dayBranch,
+      monthBranch,
+      data.pillars,
+      data.yongshinProfile,
+      data.cheoneulBranches,
+      data.yearGongmang,
+      data.gongmang,
+      targetYearDaewoon,
+    ]
   );
 
   const activeMw =
     rawWolwoons.find((mw) => mw.month === selectedMonth) ?? rawWolwoons[0];
 
-  // 배열 방향(좌->우 기본 / 우->좌 전통) 적용
   const displayedDaewoons = useMemo(
     () => (direction === 'rtl' ? [...data.daewoons].reverse() : data.daewoons),
     [data.daewoons, direction]
@@ -83,20 +203,8 @@ export function LuckCyclesSection({ data }: LuckCyclesSectionProps) {
     [rawWolwoons, direction]
   );
 
-  const dwGood =
-    activeDw &&
-    (data.yongshinEls.includes(activeDw.stem.el) ||
-      data.yongshinEls.includes(activeDw.branch.el));
-
-  const swGood =
-    activeSw &&
-    (data.yongshinEls.includes(activeSw.stem.el) ||
-      data.yongshinEls.includes(activeSw.branch.el));
-
-  const mwGood =
-    activeMw &&
-    (data.yongshinEls.includes(activeMw.stem.el) ||
-      data.yongshinEls.includes(activeMw.branch.el));
+  const pickSinsal = (all: string[], yd: string[]) =>
+    sinsalScope === 'ym_day' ? all : yd;
 
   return (
     <section
@@ -110,7 +218,7 @@ export function LuckCyclesSection({ data }: LuckCyclesSectionProps) {
             04. 대운(大運) · 세운(歲運) · 월운(月運)
           </p>
           <h2 className="mt-1 font-serif text-xl font-bold text-ink">
-            10년 대운표 · 연도별 세운 · 1~12월 월운
+            10년 대운표 · 연도별 세운 · 1~12월 월운 동적 역학
           </h2>
           <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-ink-muted tabular-nums">
             <strong className="text-ink">
@@ -125,22 +233,21 @@ export function LuckCyclesSection({ data }: LuckCyclesSectionProps) {
           </div>
         </div>
 
-        {/* 좌↔우 배열 방향 전환 토글 */}
         <button
           type="button"
           onClick={() => setDirection((prev) => (prev === 'ltr' ? 'rtl' : 'ltr'))}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-hanji-border bg-hanji px-3 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-hanji-subtle whitespace-nowrap shrink-0 cursor-pointer"
+          className="no-print inline-flex items-center gap-1.5 rounded-lg border border-hanji-border bg-hanji px-3 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-hanji-subtle whitespace-nowrap shrink-0 cursor-pointer"
         >
           <ArrowLeftRight className="h-3.5 w-3.5 text-bronze" aria-hidden="true" />
           {direction === 'ltr' ? '배열: 좌 → 우 (현대)' : '배열: 우 → 좌 (전통)'}
         </button>
       </div>
 
-      {/* 1. 대운 스트립 (12운성 + 12신살 포함) */}
+      {/* 1. 대운 스트립 */}
       <div className="mt-5">
         <div className="mb-2.5 flex items-center justify-between gap-2">
           <span className="text-xs font-semibold text-ink-muted">
-            대운 (전통나이 기준 · 클릭하여 10년 운기 확인)
+            대운 (전통나이 기준 · 클릭하여 원국과의 합충·귀인·용희 판정 확인)
           </span>
           <span className="font-mono text-[11px] text-ink-muted">
             {direction === 'ltr' ? '오른쪽으로 진행 →' : '← 왼쪽으로 진행'}
@@ -151,6 +258,12 @@ export function LuckCyclesSection({ data }: LuckCyclesSectionProps) {
           {displayedDaewoons.map((dw) => {
             const isSelected = dw.index === selectedDwIdx;
             const isNow = currentAge >= dw.age && currentAge <= dw.endAge;
+            const s12 = pickSinsal(dw.sinsal12, dw.sinsal12YearDay);
+            const hasMajorWarn = dw.assessment.interactions.some(
+              (x) => x.category === '천충지충' || x.category === '지지충'
+            );
+            const hasGwiin = dw.assessment.interactions.some((x) => x.category === '귀인');
+
             return (
               <button
                 key={dw.index}
@@ -161,7 +274,7 @@ export function LuckCyclesSection({ data }: LuckCyclesSectionProps) {
                     setSelectedSwYear(dw.year);
                   }
                 }}
-                className={`flex min-w-[74px] flex-1 flex-col items-center rounded-lg border px-1.5 py-2 text-center transition-colors cursor-pointer shrink-0 ${
+                className={`flex min-w-[76px] flex-1 flex-col items-center rounded-lg border px-1.5 py-2 text-center transition-colors cursor-pointer shrink-0 ${
                   isSelected
                     ? 'border-2 border-bronze bg-hanji-highlight'
                     : 'border-hanji-border bg-hanji-input/90 hover:border-bronze/60'
@@ -188,12 +301,20 @@ export function LuckCyclesSection({ data }: LuckCyclesSectionProps) {
                 <span className="mt-1 text-[11px] font-medium text-ink">{dw.branchTG}</span>
                 <span className="text-[10px] font-semibold text-bronze-dark">{dw.stage12}</span>
                 <div className="mt-1 border-t border-hanji-border/60 pt-1 w-full space-y-0.5 text-[10px] text-ink-muted leading-tight">
-                  {dw.sinsal12.map((s, idx) => (
+                  {s12.map((s, idx) => (
                     <div key={idx}>{s}</div>
                   ))}
                 </div>
-                <span className="mt-1 font-mono text-[10px] tabular-nums text-ink-muted/80">
-                  {isNow ? '현재' : dw.year}
+                <span
+                  className={`mt-1 font-mono text-[10px] font-semibold tabular-nums ${
+                    hasMajorWarn
+                      ? 'text-fire-fg'
+                      : hasGwiin
+                        ? 'text-wood-fg'
+                        : 'text-ink-muted/80'
+                  }`}
+                >
+                  {isNow ? '현재' : hasGwiin ? `${dw.year}·귀인` : hasMajorWarn ? `${dw.year}·충` : dw.year}
                 </span>
               </button>
             );
@@ -201,33 +322,21 @@ export function LuckCyclesSection({ data }: LuckCyclesSectionProps) {
         </div>
 
         {activeDw && (
-          <div className="mt-3 rounded-lg bg-hanji px-4 py-3 text-xs sm:text-sm leading-relaxed text-ink">
-            <strong className="font-serif">
-              {activeDw.age}~{activeDw.endAge}세 대운 ({activeDw.stem.kor}
-              {activeDw.branch.kor} · {activeDw.stem.hanja}
-              {activeDw.branch.hanja}, {activeDw.year}~{activeDw.year + 9}년)
-            </strong>
-            <span className="mx-2 text-ink-muted">|</span>
-            <span>
-              천간 <strong>{activeDw.stemTG}</strong>({ELEMENTS[activeDw.stem.el].kor}) · 지지{' '}
-              <strong>{activeDw.branchTG}</strong>({ELEMENTS[activeDw.branch.el].kor}) · 12운성{' '}
-              <strong>{activeDw.stage12}</strong> · 12신살{' '}
-              <strong>{activeDw.sinsal12.join('·')}</strong>.{' '}
-              {dwGood
-                ? '용신·희신 오행이 함께 유입되어 확장과 성과가 열리기 좋은 10년 주기입니다.'
-                : '외부 확장보다 전문 역량 축적과 리스크 관리에 집중할수록 안정적인 결실을 거두는 시기입니다.'}
-            </span>
-          </div>
+          <TransitDetailPanel
+            title={`${activeDw.age}~${activeDw.endAge}세 대운 (${activeDw.stem.kor}${activeDw.branch.kor} · ${activeDw.stem.hanja}${activeDw.branch.hanja}, ${activeDw.year}~${activeDw.year + 9}년)`}
+            meta={`천간 ${activeDw.stemTG}(${ELEMENTS[activeDw.stem.el].kor}) · 지지 ${activeDw.branchTG}(${ELEMENTS[activeDw.branch.el].kor}) · 12운성 ${activeDw.stage12}`}
+            assessment={activeDw.assessment}
+          />
         )}
       </div>
 
-      {/* 2. 세운(년운) 스트립 (클릭 시 하단 월운 연동) */}
+      {/* 2. 세운(년운) 스트립 */}
       <div className="mt-7 pt-6 border-t border-hanji-border">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <span className="text-xs font-semibold text-ink-muted">
-            세운 (년운 · 연도 클릭 시 하단 월운이 연동됩니다)
+            세운 (년운 · 연도 클릭 시 원국·대운 교차 역학 및 하단 월운 연동)
           </span>
-          <div className="flex items-center gap-1 rounded-lg bg-hanji-subtle p-1">
+          <div className="no-print flex items-center gap-1 rounded-lg bg-hanji-subtle p-1">
             <button
               type="button"
               onClick={() => {
@@ -262,12 +371,13 @@ export function LuckCyclesSection({ data }: LuckCyclesSectionProps) {
         <div className="flex gap-2 overflow-x-auto pb-2">
           {displayedSewoons.map((sw) => {
             const isSelected = activeSw && sw.year === activeSw.year;
+            const s12 = pickSinsal(sw.sinsal12, sw.sinsal12YearDay);
             return (
               <button
                 key={sw.year}
                 type="button"
                 onClick={() => setSelectedSwYear(sw.year)}
-                className={`flex min-w-[70px] flex-1 flex-col items-center rounded-lg border px-1.5 py-2 text-center transition-colors cursor-pointer shrink-0 ${
+                className={`flex min-w-[72px] flex-1 flex-col items-center rounded-lg border px-1.5 py-2 text-center transition-colors cursor-pointer shrink-0 ${
                   isSelected
                     ? 'border-2 border-bronze bg-hanji-highlight'
                     : 'border-hanji-border bg-hanji-input/90 hover:border-bronze/60'
@@ -294,7 +404,7 @@ export function LuckCyclesSection({ data }: LuckCyclesSectionProps) {
                 <span className="mt-1 text-[11px] font-medium text-ink">{sw.branchTG}</span>
                 <span className="text-[10px] font-semibold text-bronze-dark">{sw.stage12}</span>
                 <div className="mt-1 border-t border-hanji-border/60 pt-1 w-full space-y-0.5 text-[10px] text-ink-muted leading-tight">
-                  {sw.sinsal12.map((s, idx) => (
+                  {s12.map((s, idx) => (
                     <div key={idx}>{s}</div>
                   ))}
                 </div>
@@ -307,22 +417,11 @@ export function LuckCyclesSection({ data }: LuckCyclesSectionProps) {
         </div>
 
         {activeSw && (
-          <div className="mt-3 rounded-lg bg-hanji px-4 py-3 text-xs sm:text-sm leading-relaxed text-ink">
-            <strong className="font-serif">
-              {activeSw.year}년 {activeSw.stem.kor}
-              {activeSw.branch.kor}년 ({activeSw.stem.hanja}
-              {activeSw.branch.hanja} · {activeSw.age}세)
-            </strong>
-            <span className="mx-2 text-ink-muted">|</span>
-            <span>
-              천간 <strong>{activeSw.stemTG}</strong> · 지지 <strong>{activeSw.branchTG}</strong> ·
-              12운성 <strong>{activeSw.stage12}</strong> · 12신살{' '}
-              <strong>{activeSw.sinsal12.join('·')}</strong>.{' '}
-              {swGood
-                ? '원국에 필요한 용신·희신 오행이 함께 들어와 새로운 기회와 긍정적 전환을 모색하기 좋습니다.'
-                : '무리한 변화보다 내실을 다지고 기존 기반과 관계를 세밀히 점검할 때 성과가 단단해집니다.'}
-            </span>
-          </div>
+          <TransitDetailPanel
+            title={`${activeSw.year}년 ${activeSw.stem.kor}${activeSw.branch.kor}년 (${activeSw.stem.hanja}${activeSw.branch.hanja} · ${activeSw.age}세)`}
+            meta={`천간 ${activeSw.stemTG} · 지지 ${activeSw.branchTG} · 12운성 ${activeSw.stage12}`}
+            assessment={activeSw.assessment}
+          />
         )}
       </div>
 
@@ -388,23 +487,11 @@ export function LuckCyclesSection({ data }: LuckCyclesSectionProps) {
         </div>
 
         {activeMw && (
-          <div className="mt-3 rounded-lg bg-hanji px-4 py-3 text-xs sm:text-sm leading-relaxed text-ink">
-            <strong className="font-serif">
-              {activeMw.year}년 {activeMw.month}월 ({activeMw.stem.kor}
-              {activeMw.branch.kor}월 · {activeMw.stem.hanja}
-              {activeMw.branch.hanja})
-            </strong>
-            <span className="mx-2 text-ink-muted">|</span>
-            <span>
-              천간 <strong>{activeMw.stemTG}</strong>({ELEMENTS[activeMw.stem.el].kor}) · 지지{' '}
-              <strong>{activeMw.branchTG}</strong>({ELEMENTS[activeMw.branch.el].kor}) · 12운성{' '}
-              <strong>{activeMw.stage12}</strong> · 12신살{' '}
-              <strong>{activeMw.sinsal12.join('·')}</strong>.{' '}
-              {mwGood
-                ? '용신 기운이 맞물려 추진 중인 일이나 소통에서 탄력을 받기 좋은 달입니다.'
-                : '속도를 조절하고 세부 일정과 컨디션을 점검하며 차분히 대응하면 유리한 달입니다.'}
-            </span>
-          </div>
+          <TransitDetailPanel
+            title={`${activeMw.year}년 ${activeMw.month}월 (${activeMw.stem.kor}${activeMw.branch.kor}월 · ${activeMw.stem.hanja}${activeMw.branch.hanja})`}
+            meta={`천간 ${activeMw.stemTG}(${ELEMENTS[activeMw.stem.el].kor}) · 지지 ${activeMw.branchTG}(${ELEMENTS[activeMw.branch.el].kor}) · 12운성 ${activeMw.stage12}`}
+            assessment={activeMw.assessment}
+          />
         )}
       </div>
     </section>

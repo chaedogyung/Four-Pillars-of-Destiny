@@ -1,9 +1,13 @@
 import { useState } from 'react';
 import { BRANCHES, ELEMENTS, ELEMENT_STYLES } from '../lib/sajuData';
-import type { PillarVisibility, SajuResult } from '../types/saju';
+import type { PillarOrder, PillarVisibility, SajuResult, SinsalScope } from '../types/saju';
 
 interface FourPillarsSectionProps {
   data: SajuResult;
+  sinsalScope: SinsalScope;
+  onChangeSinsalScope: (scope: SinsalScope) => void;
+  pillarOrder: PillarOrder;
+  onChangePillarOrder: (order: PillarOrder) => void;
 }
 
 const DEFAULT_VISIBILITY: PillarVisibility = {
@@ -13,7 +17,13 @@ const DEFAULT_VISIBILITY: PillarVisibility = {
   relations: true,
 };
 
-export function FourPillarsSection({ data }: FourPillarsSectionProps) {
+export function FourPillarsSection({
+  data,
+  sinsalScope,
+  onChangeSinsalScope,
+  pillarOrder,
+  onChangePillarOrder,
+}: FourPillarsSectionProps) {
   const [visibility, setVisibility] = useState<PillarVisibility>(DEFAULT_VISIBILITY);
 
   const dayP = data.pillars[1];
@@ -32,15 +42,20 @@ export function FourPillarsSection({ data }: FourPillarsSectionProps) {
     dayP.stemObj && dayP.branchObj ? `${dayP.stemObj.kor}${dayP.branchObj.kor}` : '';
   const kasiVerified = Boolean(kasiIljin && kasiIljin === calcIljin);
 
+  const orderedKeys: Array<'hour' | 'day' | 'month' | 'year'> =
+    pillarOrder === 'ymdh'
+      ? ['year', 'month', 'day', 'hour']
+      : ['hour', 'day', 'month', 'year'];
+  const displayedPillars =
+    pillarOrder === 'ymdh'
+      ? [data.pillars[3], data.pillars[2], data.pillars[1], data.pillars[0]]
+      : data.pillars;
+
   const corrSummary = data.input.unknownTime
     ? '출생 시간 미상 (삼주 분석)'
-    : data.input.trueSolar
-      ? `${data.adjustedTimeStr} (경도 ${st.lonCorrMin >= 0 ? '+' : ''}${st.lonCorrMin.toFixed(1)}분${
-          data.input.includeEoT
-            ? `, 균시차 ${st.eotCorrMin >= 0 ? '+' : ''}${st.eotCorrMin.toFixed(1)}분`
-            : ''
-        })`
-      : `${data.adjustedTimeStr} (보정 미적용)`;
+    : `${data.adjustedTimeStr}${
+        data.sijin ? ` · ${data.sijin.name}(${data.sijin.hanja})` : ''
+      } (${st.correctionLabel})`;
 
   const toggleVisibility = (key: keyof PillarVisibility) => {
     setVisibility((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -65,6 +80,10 @@ export function FourPillarsSection({ data }: FourPillarsSectionProps) {
               <span>{yearP.branchObj.animal}띠</span>
             </>
           )}
+          <span aria-hidden="true">·</span>
+          <span className="font-serif font-semibold text-bronze-dark">
+            {data.geokguk.name}({data.geokguk.hanja})
+          </span>
         </div>
 
         <h1 className="mt-2 font-serif text-2xl sm:text-3xl font-bold tracking-tight text-ink">
@@ -91,7 +110,7 @@ export function FourPillarsSection({ data }: FourPillarsSectionProps) {
         </div>
 
         <div>
-          <dt className="text-ink-muted">진태양시 기준</dt>
+          <dt className="text-ink-muted">보정 시각 · 출생 시진</dt>
           <dd className="mt-0.5 font-mono font-medium tabular-nums text-ink">
             {corrSummary}
           </dd>
@@ -155,10 +174,10 @@ export function FourPillarsSection({ data }: FourPillarsSectionProps) {
         )}
       </dl>
 
-      {/* 원국 표시 항목 체크박스 토글 */}
-      <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-        <span className="text-xs font-semibold text-ink-muted">원국표 표시 항목</span>
+      {/* 원국 표시 항목 체크박스 토글 + 12신살 기준 전환 */}
+      <div className="no-print mt-5 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-ink">
+          <span className="font-semibold text-ink-muted">표시 항목</span>
           {(
             [
               { key: 'tenGods', label: '십성' },
@@ -181,11 +200,63 @@ export function FourPillarsSection({ data }: FourPillarsSectionProps) {
             </label>
           ))}
         </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1 rounded-lg bg-hanji-subtle p-0.5 text-[11px]">
+            <button
+              type="button"
+              onClick={() => onChangePillarOrder('ymdh')}
+              className={`rounded-md px-2.5 py-1 font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                pillarOrder === 'ymdh'
+                  ? 'bg-hanji-surface text-ink shadow-xs'
+                  : 'text-ink-muted hover:text-ink'
+              }`}
+            >
+              연·월·일·시
+            </button>
+            <button
+              type="button"
+              onClick={() => onChangePillarOrder('hdmy')}
+              className={`rounded-md px-2.5 py-1 font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                pillarOrder === 'hdmy'
+                  ? 'bg-hanji-surface text-ink shadow-xs'
+                  : 'text-ink-muted hover:text-ink'
+              }`}
+            >
+              시·일·월·연
+            </button>
+          </div>
+
+          <div className="flex items-center gap-1 rounded-lg bg-hanji-subtle p-0.5 text-[11px]">
+            <button
+              type="button"
+              onClick={() => onChangeSinsalScope('ym_day')}
+              className={`rounded-md px-2.5 py-1 font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                sinsalScope === 'ym_day'
+                  ? 'bg-hanji-surface text-ink shadow-xs'
+                  : 'text-ink-muted hover:text-ink'
+              }`}
+            >
+              12신살 년·일·월
+            </button>
+            <button
+              type="button"
+              onClick={() => onChangeSinsalScope('y_day')}
+              className={`rounded-md px-2.5 py-1 font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                sinsalScope === 'y_day'
+                  ? 'bg-hanji-surface text-ink shadow-xs'
+                  : 'text-ink-muted hover:text-ink'
+              }`}
+            >
+              년·일(전통)
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* 심화 사주 4기둥 테이블 (시주 · 일주 · 월주 · 연주) */}
+      {/* 심화 사주 4기둥 테이블 */}
       <div className="mt-4 grid grid-cols-4 gap-2 sm:gap-3.5 text-center">
-        {data.pillars.map((p) => {
+        {displayedPillars.map((p) => {
           const isDay = p.key === 'day';
           if (p.empty || !p.stemObj || !p.branchObj) {
             return (
@@ -232,9 +303,12 @@ export function FourPillarsSection({ data }: FourPillarsSectionProps) {
                   : 'border-hanji-border bg-hanji-input/90'
               }`}
             >
-              {/* 기둥 명칭 + 간지 한글 */}
+              {/* 기둥 명칭 + 간지 한글 (+ 시주 시진 병기) */}
               <div className="text-xs font-semibold text-ink-muted">
-                <span className={isDay ? 'text-bronze-dark' : 'text-ink'}>{p.label}</span>
+                <span className={isDay ? 'text-bronze-dark' : 'text-ink'}>
+                  {p.label}
+                  {p.key === 'hour' && data.sijin ? ` · ${data.sijin.name}` : ''}
+                </span>
                 <span className="block text-[11px] font-normal text-ink-muted">
                   ({p.stemObj.kor}
                   {p.branchObj.kor})
@@ -249,7 +323,13 @@ export function FourPillarsSection({ data }: FourPillarsSectionProps) {
                       {stemTags.map((t, i) => (
                         <span
                           key={i}
-                          className={t.type === 'good' ? 'text-wood-fg' : 'text-fire-fg'}
+                          className={
+                            t.type === 'good'
+                              ? 'text-wood-fg'
+                              : t.type === 'warn'
+                                ? 'text-fire-fg'
+                                : 'text-bronze-dark'
+                          }
                         >
                           {t.label}
                         </span>
@@ -345,7 +425,8 @@ export function FourPillarsSection({ data }: FourPillarsSectionProps) {
       {visibility.relations && data.branchMatrixRows.length > 0 && (
         <div className="mt-3 rounded-lg border border-hanji-border bg-hanji/60 px-2 py-2.5 sm:px-3.5">
           <div className="mb-1.5 text-[11px] font-semibold text-ink-muted">
-            지지 형충회합 관계도 (시 · 일 · 월 · 연)
+            지지 형충회합 관계도 (
+            {pillarOrder === 'ymdh' ? '연 · 월 · 일 · 시' : '시 · 일 · 월 · 연'})
           </div>
           <div className="divide-y divide-hanji-border/50">
             {data.branchMatrixRows.map((row) => (
@@ -353,7 +434,7 @@ export function FourPillarsSection({ data }: FourPillarsSectionProps) {
                 key={row.id}
                 className="grid grid-cols-4 gap-2 py-1 text-center text-[11px] sm:text-xs font-semibold"
               >
-                {(['hour', 'day', 'month', 'year'] as const).map((k) => {
+                {orderedKeys.map((k) => {
                   const val = row.cells[k];
                   return (
                     <span
@@ -417,10 +498,10 @@ export function FourPillarsSection({ data }: FourPillarsSectionProps) {
       {visibility.sinsal && (
         <div className="mt-4">
           <div className="mb-2 text-xs font-semibold text-ink-muted">
-            기둥별 공망 · 12신살(년·일 기준) · 주요 길신·신살
+            기둥별 공망 · 12신살({sinsalScope === 'ym_day' ? '년·일·월 기준' : '년·일 기준'}) · 주요 길신·신살
           </div>
           <div className="grid grid-cols-4 gap-2 sm:gap-3.5 text-center">
-            {data.pillars.map((p) => {
+            {displayedPillars.map((p) => {
               if (p.empty) {
                 return (
                   <div
@@ -432,7 +513,8 @@ export function FourPillarsSection({ data }: FourPillarsSectionProps) {
                 );
               }
               const gmList = p.gongmangLabels || [];
-              const s12 = p.sinsal12 || [];
+              const s12 =
+                sinsalScope === 'ym_day' ? p.sinsal12 || [] : p.sinsal12YearDay || [];
               const specials = p.specialStars || [];
 
               return (

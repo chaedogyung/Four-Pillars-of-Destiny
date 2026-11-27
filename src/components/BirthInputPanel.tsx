@@ -1,9 +1,15 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { MapPin, Search } from 'lucide-react';
 import { PRESET_PLACES } from '../lib/sajuData';
 import { getTimezoneOffsetHours } from '../lib/sajuEngine';
 import { searchBirthPlaceAPI } from '../lib/externalApis';
-import type { BirthPlace, CalendarType, Gender, SajuFormInput } from '../types/saju';
+import type {
+  BirthPlace,
+  CalendarType,
+  Gender,
+  SajuFormInput,
+  TimeCorrectionMode,
+} from '../types/saju';
 
 interface BirthInputPanelProps {
   form: SajuFormInput;
@@ -28,6 +34,12 @@ export function BirthInputPanel({
   const [placeResults, setPlaceResults] = useState<BirthPlace[]>([]);
   const [isSearchingPlace, setIsSearchingPlace] = useState(false);
   const [placeError, setPlaceError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPlaceResults([]);
+    setPlaceError(null);
+    setPlaceQuery('');
+  }, [place.name, place.latitude, place.longitude]);
 
   const [y, m, d] = (form.birthDate || '1992-08-15').split('-').map(Number);
   const tzOffset = getTimezoneOffsetHours(
@@ -266,8 +278,9 @@ export function BirthInputPanel({
         </div>
 
         {/* 정밀 보정 옵션 */}
-        <div className="space-y-2.5 pt-4 border-t border-hanji-border/70 text-xs text-ink">
-          <p className="font-semibold text-ink-muted">천문·명리 계산 옵션</p>
+        <div className="space-y-3 pt-4 border-t border-hanji-border/70 text-xs text-ink">
+          <p className="font-semibold text-ink-muted">시간 보정 및 천문·명리 옵션</p>
+
           <label className="flex items-center gap-2.5 cursor-pointer py-0.5">
             <input
               type="checkbox"
@@ -277,30 +290,63 @@ export function BirthInputPanel({
             />
             <span>출생 시간 모름 (삼주만 분석)</span>
           </label>
-          <label className="flex items-center gap-2.5 cursor-pointer py-0.5">
-            <input
-              type="checkbox"
-              checked={form.trueSolar}
-              disabled={form.unknownTime}
-              onChange={(e) => onChangeForm({ trueSolar: e.target.checked })}
-              className="h-4 w-4 accent-bronze rounded"
-            />
-            <span className={form.unknownTime ? 'text-ink-muted' : ''}>
-              출생지 경도 진태양시 보정
+
+          {/* 3단 시간 보정 방식 선택 */}
+          <div className={form.unknownTime ? 'opacity-50 pointer-events-none' : ''}>
+            <span className="block text-[11px] font-medium text-ink-muted mb-1.5">
+              시진 산출 보정 기준
             </span>
-          </label>
-          <label className="flex items-center gap-2.5 cursor-pointer py-0.5">
-            <input
-              type="checkbox"
-              checked={form.includeEoT}
-              disabled={form.unknownTime || !form.trueSolar}
-              onChange={(e) => onChangeForm({ includeEoT: e.target.checked })}
-              className="h-4 w-4 accent-bronze rounded"
-            />
-            <span className={form.unknownTime || !form.trueSolar ? 'text-ink-muted' : ''}>
-              균시차(태양 타원 궤도 보정) 포함
-            </span>
-          </label>
+            <div
+              role="group"
+              aria-label="시진 산출 보정 기준"
+              className="grid grid-cols-3 gap-1 rounded-lg bg-hanji-subtle p-1"
+            >
+              {(
+                [
+                  { val: 'korea_std', label: '표준 -30분' },
+                  { val: 'true_solar', label: '경도 보정' },
+                  { val: 'none', label: '미적용' },
+                ] as Array<{ val: TimeCorrectionMode; label: string }>
+              ).map((opt) => (
+                <button
+                  key={opt.val}
+                  type="button"
+                  disabled={form.unknownTime}
+                  onClick={() => onChangeForm({ timeCorrectionMode: opt.val })}
+                  className={`rounded-md py-1.5 px-1.5 text-[11px] font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                    form.timeCorrectionMode === opt.val
+                      ? 'bg-hanji-surface text-ink shadow-xs'
+                      : 'text-ink-muted hover:text-ink'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <p className="mt-1.5 text-[11px] leading-snug text-ink-muted">
+              {form.timeCorrectionMode === 'korea_std'
+                ? '한국 정통 만세력 표준(-30분)으로 시진을 산출합니다.'
+                : form.timeCorrectionMode === 'true_solar'
+                  ? `선택한 출생지 경도(${lonCorrMin >= 0 ? '+' : ''}${lonCorrMin.toFixed(1)}분)를 적용합니다.`
+                  : '입력한 시계 시각을 보정 없이 그대로 사용합니다.'}
+            </p>
+          </div>
+
+          {form.timeCorrectionMode === 'true_solar' && (
+            <label className="flex items-center gap-2.5 cursor-pointer py-0.5">
+              <input
+                type="checkbox"
+                checked={form.includeEoT}
+                disabled={form.unknownTime}
+                onChange={(e) => onChangeForm({ includeEoT: e.target.checked })}
+                className="h-4 w-4 accent-bronze rounded"
+              />
+              <span className={form.unknownTime ? 'text-ink-muted' : ''}>
+                균시차(태양 타원 궤도 보정) 포함
+              </span>
+            </label>
+          )}
+
           <label className="flex items-center gap-2.5 cursor-pointer py-0.5">
             <input
               type="checkbox"

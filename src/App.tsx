@@ -9,14 +9,22 @@ import { ComprehensiveReportSection } from './components/ComprehensiveReportSect
 import { DEFAULT_PLACE } from './lib/sajuData';
 import { calculateSaju } from './lib/sajuEngine';
 import {
+  deleteSavedProfile,
+  loadSavedProfiles,
+  upsertSavedProfile,
+} from './lib/profileStorage';
+import {
   fetchKasiLunarFromSolar,
   fetchKasiSolarFromLunar,
 } from './lib/externalApis';
 import type {
   BirthPlace,
   KasiCalendarInfo,
+  PillarOrder,
   SajuFormInput,
   SajuResult,
+  SavedSajuProfile,
+  SinsalScope,
   ThemeMode,
 } from './types/saju';
 
@@ -29,8 +37,8 @@ const INITIAL_FORM: SajuFormInput = {
   birthDate: '1992-08-15',
   birthTime: '14:30',
   unknownTime: false,
-  trueSolar: true,
-  includeEoT: true,
+  timeCorrectionMode: 'korea_std',
+  includeEoT: false,
   yajasi: false,
 };
 
@@ -46,8 +54,15 @@ function getInitialTheme(): ThemeMode {
 
 export default function App() {
   const [theme, setTheme] = useState<ThemeMode>(getInitialTheme);
+  const [sinsalScope, setSinsalScope] = useState<SinsalScope>('ym_day');
+  const [pillarOrder, setPillarOrder] = useState<PillarOrder>('ymdh');
   const [form, setForm] = useState<SajuFormInput>(INITIAL_FORM);
   const [place, setPlace] = useState<BirthPlace>(DEFAULT_PLACE);
+  const [savedProfiles, setSavedProfiles] = useState<SavedSajuProfile[]>(() =>
+    loadSavedProfiles()
+  );
+  const savedProfilesRef = useRef<SavedSajuProfile[]>(savedProfiles);
+  const [activeProfileId, setActiveProfileId] = useState<string | null>(null);
   const [result, setResult] = useState<SajuResult>(() =>
     calculateSaju({
       name: INITIAL_FORM.name,
@@ -57,7 +72,7 @@ export default function App() {
       solarDateStr: INITIAL_FORM.birthDate,
       timeStr: INITIAL_FORM.birthTime,
       unknownTime: INITIAL_FORM.unknownTime,
-      trueSolar: INITIAL_FORM.trueSolar,
+      timeCorrectionMode: INITIAL_FORM.timeCorrectionMode,
       includeEoT: INITIAL_FORM.includeEoT,
       yajasi: INITIAL_FORM.yajasi,
       place: DEFAULT_PLACE,
@@ -71,6 +86,10 @@ export default function App() {
 
   const aiSectionRef = useRef<HTMLElement | null>(null);
 
+  useEffect(() => {
+    savedProfilesRef.current = savedProfiles;
+  }, [savedProfiles]);
+
   // html.dark 클래스 동기화 및 테마 설정 저장
   useEffect(() => {
     const root = document.documentElement;
@@ -83,7 +102,14 @@ export default function App() {
   }, [theme]);
 
   const handleAnalyze = useCallback(
-    async (targetForm: SajuFormInput, targetPlace: BirthPlace) => {
+    async (
+      targetForm: SajuFormInput,
+      targetPlace: BirthPlace,
+      options?: { saveToHistory?: boolean; source?: 'submit' | 'select' | 'init' }
+    ) => {
+      const saveToHistory = options?.saveToHistory ?? false;
+      const source = options?.source ?? 'submit';
+
       setIsSubmitting(true);
       setStatusMsg(null);
 
@@ -95,6 +121,7 @@ export default function App() {
 
         let solarDateStr = targetForm.birthDate;
         let kasiInfo: KasiCalendarInfo | null = null;
+        let kasiNotice: string | null = null;
 
         if (targetForm.calendarType === 'lunar' || targetForm.calendarType === 'lunar_leap') {
           kasiInfo = await fetchKasiSolarFromLunar(
@@ -104,12 +131,9 @@ export default function App() {
             targetForm.calendarType === 'lunar_leap'
           );
           solarDateStr = `${kasiInfo.solYear}-${String(kasiInfo.solMonth).padStart(2, '0')}-${String(kasiInfo.solDay).padStart(2, '0')}`;
-          setStatusMsg({
-            type: 'info',
-            text: `KASI 음양력 변환 완료: 음력 ${targetForm.birthDate}(${
-              targetForm.calendarType === 'lunar_leap' ? '윤달' : '평달'
-            }) → 양력 ${solarDateStr}`,
-          });
+          kasiNotice = `KASI 음양력 변환 완료: 음력 ${targetForm.birthDate}(${
+            targetForm.calendarType === 'lunar_leap' ? '윤달' : '평달'
+          }) → 양력 ${solarDateStr}`;
         } else {
           try {
             kasiInfo = await fetchKasiLunarFromSolar(iy, im, id);
@@ -126,13 +150,40 @@ export default function App() {
           solarDateStr,
           timeStr: targetForm.birthTime,
           unknownTime: targetForm.unknownTime,
-          trueSolar: targetForm.trueSolar,
+          timeCorrectionMode: targetForm.timeCorrectionMode,
           includeEoT: targetForm.includeEoT,
           yajasi: targetForm.yajasi,
           place: targetPlace,
           kasiInfo,
         });
         setResult(calculated);
+
+        if (saveToHistory) {
+          const { profiles, saved, wasUpdated } = upsertSavedProfile(
+            savedProfilesRef.current,
+            targetForm,
+            targetPlace,
+            calculated
+          );
+          savedProfilesRef.current = profiles;
+          setSavedProfiles(profiles);
+          setActiveProfileId(saved.id);
+
+          const displayName = saved.form.name || '무명';
+          const saveNotice =
+            source === 'select'
+              ? `'${displayName}' 명식을 불러와 자동 분석을 완료했습니다.`
+              : wasUpdated
+                ? `'${displayName}' 명식 정보를 최신값으로 갱신했습니다.`
+                : `'${displayName}' 명식이 상단 명식 목록에 저장되었습니다.`;
+
+          setStatusMsg({
+            type: 'info',
+            text: kasiNotice ? `${kasiNotice} · ${saveNotice}` : saveNotice,
+          });
+        } else if (kasiNotice) {
+          setStatusMsg({ type: 'info', text: kasiNotice });
+        }
       } catch (err) {
         setStatusMsg({
           type: 'error',
@@ -145,10 +196,32 @@ export default function App() {
     []
   );
 
-  // 초기 로드 시 서버에 설정된 KASI 음양력 정보를 자동으로 조회해 반영
+  // 초기 로드 시 서버에 설정된 KASI 음양력 정보를 자동으로 조회해 반영 (예시 명식은 목록 자동 저장 제외)
   useEffect(() => {
-    void handleAnalyze(INITIAL_FORM, DEFAULT_PLACE);
+    void handleAnalyze(INITIAL_FORM, DEFAULT_PLACE, { saveToHistory: false, source: 'init' });
   }, [handleAnalyze]);
+
+  const handleSelectProfile = useCallback(
+    (profile: SavedSajuProfile) => {
+      const nextForm: SajuFormInput = { ...profile.form };
+      const nextPlace: BirthPlace = { ...profile.place };
+      setForm(nextForm);
+      setPlace(nextPlace);
+      void handleAnalyze(nextForm, nextPlace, { saveToHistory: true, source: 'select' });
+
+      if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+        document.getElementById('pillars')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    },
+    [handleAnalyze]
+  );
+
+  const handleDeleteProfile = useCallback((id: string) => {
+    const next = deleteSavedProfile(savedProfilesRef.current, id);
+    savedProfilesRef.current = next;
+    setSavedProfiles(next);
+    setActiveProfileId((prev) => (prev === id ? null : prev));
+  }, []);
 
   const handleJumpToAi = () => {
     aiSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -156,11 +229,20 @@ export default function App() {
 
   return (
     <div id="top" className="min-h-screen flex flex-col">
-      <TopBar onJumpToAi={handleJumpToAi} />
+      <div className="no-print">
+        <TopBar
+          savedProfiles={savedProfiles}
+          activeProfileId={activeProfileId}
+          isAnalyzing={isSubmitting}
+          onSelectProfile={handleSelectProfile}
+          onDeleteProfile={handleDeleteProfile}
+          onJumpToAi={handleJumpToAi}
+        />
+      </div>
 
       <main className="mx-auto w-full max-w-[1320px] flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
         {/* 에디토리얼 도입부 + 워크스페이스 테마 전환 바 */}
-        <div className="mb-6 pb-5 border-b border-hanji-border flex flex-wrap items-end justify-between gap-4">
+        <div className="no-print mb-6 pb-5 border-b border-hanji-border flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-xs font-medium text-bronze-dark">
               자평명리학(子平命理學) · 천문 태양황경 정통 만세력
@@ -206,7 +288,7 @@ export default function App() {
 
         {/* 데스크톱 2컬럼 / 모바일 1컬럼 반응형 워크스페이스 */}
         <div className="grid grid-cols-1 gap-7 lg:grid-cols-12 items-start">
-          <div className="lg:col-span-4 lg:sticky lg:top-20">
+          <div className="no-print lg:col-span-4 lg:sticky lg:top-20">
             <BirthInputPanel
               form={form}
               place={place}
@@ -214,20 +296,28 @@ export default function App() {
               statusMsg={statusMsg}
               onChangeForm={(patch) => setForm((prev) => ({ ...prev, ...patch }))}
               onChangePlace={setPlace}
-              onSubmit={() => void handleAnalyze(form, place)}
+              onSubmit={() =>
+                void handleAnalyze(form, place, { saveToHistory: true, source: 'submit' })
+              }
             />
           </div>
 
-          <div className="lg:col-span-8 space-y-6">
-            <FourPillarsSection data={result} />
+          <div className="print-full lg:col-span-8 space-y-6">
+            <FourPillarsSection
+              data={result}
+              sinsalScope={sinsalScope}
+              onChangeSinsalScope={setSinsalScope}
+              pillarOrder={pillarOrder}
+              onChangePillarOrder={setPillarOrder}
+            />
             <ElementsAndRelationsSection data={result} />
-            <LuckCyclesSection data={result} />
+            <LuckCyclesSection data={result} sinsalScope={sinsalScope} />
             <ComprehensiveReportSection data={result} aiSectionRef={aiSectionRef} />
           </div>
         </div>
       </main>
 
-      <footer className="mt-14 border-t border-hanji-border bg-hanji-surface/70">
+      <footer className="no-print mt-14 border-t border-hanji-border bg-hanji-surface/70">
         <div className="mx-auto flex max-w-[1320px] flex-wrap items-center justify-between gap-3 px-4 py-5 text-xs text-ink-muted sm:px-6 lg:px-8">
           <span className="font-serif font-semibold text-ink">淸明 · 정통 사주팔자 만세력</span>
           <span>
